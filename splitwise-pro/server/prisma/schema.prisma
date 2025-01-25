@@ -1,0 +1,89 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            Int            @id @default(autoincrement())
+  email         String         @unique
+  passwordHash  String
+  fullName      String
+  avatarUrl     String?
+  phoneNumber   String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  expenses      Expense[]      @relation("ExpenseCreator")
+  groupsCreated Group[]        @relation("GroupCreator")
+  groupMembers  GroupMember[]
+  expenseSplits ExpenseSplit[]
+  sentPayments  Transaction[]  @relation("PayerTransactions")
+  recvPayments  Transaction[]  @relation("PayeeTransactions")
+}
+
+model Group {
+  id          Int           @id @default(autoincrement())
+  groupName   String
+  createdBy   Int
+  creator     User          @relation("GroupCreator", fields: [createdBy], references: [id])
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  expenses    Expense[]
+  members     GroupMember[]
+}
+
+model GroupMember {
+  id        Int      @id @default(autoincrement())
+  groupId   Int
+  userId    Int
+  role      String   @default("member")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  group     Group    @relation(fields: [groupId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([groupId, userId])
+}
+
+model Expense {
+  id           Int            @id @default(autoincrement())
+  groupId      Int
+  userId       Int
+  amount       Decimal        @db.Decimal(10, 2)
+  description  String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  group        Group          @relation(fields: [groupId], references: [id])
+  creator      User           @relation("ExpenseCreator", fields: [userId], references: [id])
+  splits       ExpenseSplit[]
+  transactions Transaction[]
+}
+
+model ExpenseSplit {
+  id        Int      @id @default(autoincrement())
+  expenseId Int
+  userId    Int
+  amount    Decimal  @db.Decimal(10, 2)
+  isPaid    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  expense   Expense  @relation(fields: [expenseId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Transaction {
+  id            Int      @id @default(autoincrement())
+  payerId       Int
+  payeeId       Int
+  amount        Decimal  @db.Decimal(10, 2)
+  paymentMethod String
+  expenseId     Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  payer         User     @relation("PayerTransactions", fields: [payerId], references: [id])
+  payee         User     @relation("PayeeTransactions", fields: [payeeId], references: [id])
+  expense       Expense? @relation(fields: [expenseId], references: [id])
+}
